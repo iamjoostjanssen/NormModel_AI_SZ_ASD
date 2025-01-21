@@ -1,0 +1,872 @@
+
+
+```{r}
+library(ggplot2)
+library(ggridges)
+library(gridExtra)
+library(dplyr)
+library(effsize)
+library(coin)
+```
+
+```{r}
+#Read Data:
+z_scores_li_rom <- read.csv('/data_J/scripts/imaging_data/normative_modeling/RomeroGarciaSymm/AI/z_scores_noAGES/S90_RomeroGarciaSymm_test_warp_3order_noAGES_SEX_ID_dcode_site_scan_z.csv')
+z_scores_sch <- read.csv('/data_J/scripts/imaging_data/normative_modeling/Schaefer2018/AI/z_scores_noAGES/S90_Schaefer2018_test_warp_3order_noAGES_SEX_ID_dcode_site_scan_z.csv')
+z_scores_trad_rom <- read.csv('/data_J/scripts/imaging_data/normative_modeling/RomeroGarciaSymm/AI_trad/z_scores_noAGES/S90_RomeroGarciaSymm_AI_trad_test_warp_3order_noAGES_SEX_ID_dcode_site_scan_z.csv', sep=",")
+
+z_scores_cortex <- read.csv('/data_J/scripts/imaging_data/normative_modeling/cortex_z_scores/S90_RomeroGarciaSymm_cortex_test_warp_3order_SEX_ID_dcode_site_scan_z.csv') 
+
+z_scores_cortex <- subset(z_scores_cortex, select = -scanner)
+
+z_scores_trad_mean <- read.csv('/data_J/scripts/imaging_data/normative_modeling/RomeroGarciaSymm/AI_trad/z_scores_noAGES/S90_mean_test_trad_warp_3order_noAGES_ID_dcode_site_scan_z.csv', sep=",")
+
+# Mean trad only for males
+z_scores_trad_mean_males  <- subset(z_scores_trad_mean, sex == 1)
+
+z_scores_trad_rom <- read.csv('/data_J/scripts/imaging_data/normative_modeling/RomeroGarciaSymm/AI_trad/z_scores_noAGES/S90_RomeroGarciaSymm_AI_trad_test_warp_3order_noAGES_SEX_ID_dcode_site_scan_z.csv', sep=",")
+
+data_li_romero <- read.csv('/data_J/scripts/imaging_data/normative_modeling/noAGES/y_test_s90_LI_romero_withoutFEP_ID_dcode_scan.csv')
+data_trad <- read.csv('/data_J/scripts/imaging_data/normative_modeling/noAGES/y_test_s90_romero_TRAD_withoutFEP_ID_dcode_scan.csv')
+data_li_sch <- read.csv('/data_J/scripts/imaging_data/normative_modeling/noAGES/y_test_s90_LI_Schaefer_withoutFEP_ID_dcode_scan.csv')
+```
+
+```{r}
+#Separate into different groups, create a dataframe for each group:
+
+subsetAndLabel <- function(df, dcode_col_name) {
+  unique_dcodes <- unique(df[[dcode_col_name]])
+  subsets <- list()
+  
+  for (dcode_value in unique_dcodes) {
+    subset_df <- subset(df, df[[dcode_col_name]] == dcode_value)
+    # Remove 'site' and scanner'
+    subset_df <- subset_df[ , !(names(subset_df) %in% c('site', 'scanner'))]
+  
+    if (dcode_value == 1) {
+      label <- "HC"
+    } else if (dcode_value == 2) {
+      label <- "ASD"
+    } else if (dcode_value == 3) {
+      label <- "SZ"
+    } 
+    
+    subset_name <- paste0(deparse(substitute(df)), "_", label)
+    subsets[[subset_name]] <- subset_df
+  }
+  return(subsets)
+}
+```
+
+
+```{r}
+
+subsets_trad_mean <- subsetAndLabel(z_scores_trad_mean, 'dcode')
+
+#To access each individually:
+mean_trad_HC <- subsets_trad_mean[["z_scores_trad_mean_HC"]]
+mean_trad_ASD <- subsets_trad_mean[["z_scores_trad_mean_ASD"]]
+mean_trad_SZ <- subsets_trad_mean[["z_scores_trad_mean_SZ"]]
+
+cortex_subsets <- subsetAndLabel(z_scores_cortex, 'dcode')
+
+cortex_HC <- cortex_subsets[["z_scores_cortex_HC"]]
+cortex_ASD <- cortex_subsets[["z_scores_cortex_ASD"]]
+cortex_SZ <-cortex_subsets[["z_scores_cortex_SZ"]]
+
+# Mean trad only for males
+subsets_trad_mean_males <- subsetAndLabel(z_scores_trad_mean_males, 'dcode')
+
+#To access each individually:
+mean_trad_HC_males <- subsets_trad_mean_males[["z_scores_trad_mean_males_HC"]]
+mean_trad_ASD_males <- subsets_trad_mean_males[["z_scores_trad_mean_males_ASD"]]
+mean_trad_SZ_males <- subsets_trad_mean_males[["z_scores_trad_mean_males_SZ"]]
+```
+
+
+```{r}
+subsets_li_rom <- subsetAndLabel(z_scores_li_rom, 'dcode')
+subsets_trad_rom <- subsetAndLabel(z_scores_trad_rom, 'dcode')
+subsets_li_sch <- subsetAndLabel(z_scores_sch, 'dcode')
+#Do it for imaging data 
+subsets_data_rom <- subsetAndLabel(data_li_romero, 'dcode')
+subsets_data_trad <- subsetAndLabel(data_trad, 'dcode')
+subsets_data_sch <- subsetAndLabel(data_li_sch, 'dcode')
+
+#To access each individually:
+li_rom_HC <- subsets_li_rom[["z_scores_li_rom_HC"]]
+li_rom_ASD <- subsets_li_rom[["z_scores_li_rom_ASD"]]
+li_rom_SZ <- subsets_li_rom[["z_scores_li_rom_SZ"]]
+
+trad_rom_HC <- subsets_trad_rom[["z_scores_trad_rom_HC"]]
+trad_rom_ASD <- subsets_trad_rom[["z_scores_trad_rom_ASD"]]
+trad_rom_SZ <- subsets_trad_rom[["z_scores_trad_rom_SZ"]]
+
+li_sch_HC <- subsets_li_sch[["z_scores_sch_HC"]]
+li_sch_ASD <- subsets_li_sch[["z_scores_sch_ASD"]]
+li_sch_SZ <- subsets_li_sch[["z_scores_sch_SZ"]]
+
+data_li_rom_HC <- subsets_data_rom[["data_li_romero_HC"]]
+data_li_rom_ASD <- subsets_data_rom[["data_li_romero_ASD"]]
+data_li_rom_SZ <- subsets_data_rom[["data_li_romero_SZ"]]
+
+data_trad_HC <- subsets_data_trad[["data_trad_HC"]]
+data_trad_ASD <- subsets_data_trad[["data_trad_ASD"]]
+data_trad_SZ <- subsets_data_trad[["data_trad_SZ"]]
+
+data_li_sch_HC <- subsets_data_sch[["data_li_sch_HC"]]
+data_li_sch_ASD <- subsets_data_sch[["data_li_sch_ASD"]]
+data_li_sch_SZ <- subsets_data_sch[["data_li_sch_SZ"]]
+
+```
+
+```{r}
+#Separate into males:
+subsetByGender <- function(df, dcode_col_name) {
+  
+  subset_df <- subset(df, df[[dcode_col_name]] == 1)
+  # Remove 'site' and 'scanner' columns
+  subset_df <- subset_df[ , !(names(subset_df) %in% c('site', 'scanner'))]
+  
+  return(subset_df)
+}
+
+trad_rom_ASD_males <- subsetByGender(trad_rom_ASD, "sex")
+trad_rom_SZ_males <- subsetByGender(trad_rom_SZ, "sex")
+trad_rom_HC_males <- subsetByGender(trad_rom_HC, "sex")
+
+```
+
+```{r}
+#Just males Trad:
+
+subsets_trad_rom <- subsetAndLabel(z_scores_trad_rom, 'dcode')
+
+
+trad_rom_HC <- subsets_trad_rom[["z_scores_trad_rom_HC"]]
+trad_rom_ASD <- subsets_trad_rom[["z_scores_trad_rom_ASD"]]
+trad_rom_SZ <- subsets_trad_rom[["z_scores_trad_rom_SZ"]]
+
+trad_rom_ASD_males <- subsetByGender(trad_rom_ASD, "sex")
+trad_rom_SZ_males <- subsetByGender(trad_rom_SZ, "sex")
+trad_rom_HC_males <- subsetByGender(trad_rom_HC, "sex")
+```
+
+```{r}
+#Set 1 to supra-normal regions and 0 to the rest (binary matrix)
+
+setAboveThresholdToOne <- function(df) {
+  #Remove ID and dcode column:
+  df <- df[, !(colnames(df) %in% c("ID", "dcode", "sex"))]
+  for (i in 1:nrow(df)) {
+    for (j in 1:ncol(df)) {
+      if (df[i, j] > 1.96) {
+        # If it's greater than 1.96, replace it with 1
+        df[i, j] <- 1
+      } else {
+        # If it's less than or equal to 1.96, replace it with 0
+        df[i, j] <- 0
+      }
+    }
+  }
+
+  return(df)
+}
+
+#Set 1 to infra-normal regions and 0 to the rest (binary matrix)
+ 
+setBelowThresholdToOne <- function(df) {
+  #Remove ID and dcode column:
+  df <- df[, !(colnames(df) %in% c("ID", "dcode", "sex"))]
+  for (i in 1:nrow(df)) {
+    for (j in 1:ncol(df)) {
+      if (df[i, j] < -1.96) {
+        # If it's smaller than -1.96, replace it with 1
+        df[i, j] <- 1
+      } else {
+        # If it's larger than or equal to 1.96, replace it with 0
+        df[i, j] <- 0
+      }
+    }
+  }
+  
+  return(df)
+}
+```
+
+```{r}
+#Apply:
+
+#---------- Li Rom ------------
+
+li_rom_HC_supra <- setAboveThresholdToOne(li_rom_HC)
+li_rom_HC_infra <- setBelowThresholdToOne(li_rom_HC)
+
+li_rom_ASD_supra <- setAboveThresholdToOne(li_rom_ASD)
+li_rom_ASD_infra <- setBelowThresholdToOne(li_rom_ASD)
+
+li_rom_SZ_supra <- setAboveThresholdToOne(li_rom_SZ)
+li_rom_SZ_infra <- setBelowThresholdToOne(li_rom_SZ)
+
+#---------- Trad Rom ------------
+
+trad_rom_HC_supra <- setAboveThresholdToOne(trad_rom_HC)
+trad_rom_HC_infra <- setBelowThresholdToOne(trad_rom_HC)
+
+trad_rom_ASD_supra <- setAboveThresholdToOne(trad_rom_ASD)
+trad_rom_ASD_infra <- setBelowThresholdToOne(trad_rom_ASD)
+
+trad_rom_SZ_supra <- setAboveThresholdToOne(trad_rom_SZ)
+trad_rom_SZ_infra <- setBelowThresholdToOne(trad_rom_SZ)
+
+
+#---------- Li SCH ------------
+
+li_sch_HC_supra <- setAboveThresholdToOne(li_sch_HC)
+li_sch_HC_infra <- setBelowThresholdToOne(li_sch_HC)
+
+li_sch_ASD_supra <- setAboveThresholdToOne(li_sch_ASD)
+li_sch_ASD_infra <- setBelowThresholdToOne(li_sch_ASD)
+
+li_sch_SZ_supra <- setAboveThresholdToOne(li_sch_SZ)
+li_sch_SZ_infra <- setBelowThresholdToOne(li_sch_SZ)
+
+#---------- Trad Rom males ------------
+
+trad_rom_HC_supra_males <- setAboveThresholdToOne(trad_rom_HC_males)
+trad_rom_HC_infra_males <- setBelowThresholdToOne(trad_rom_HC_males)
+
+trad_rom_ASD_supra_males <- setAboveThresholdToOne(trad_rom_ASD_males)
+trad_rom_ASD_infra_males <- setBelowThresholdToOne(trad_rom_ASD_males)
+
+trad_rom_SZ_supra_males <- setAboveThresholdToOne(trad_rom_SZ_males)
+trad_rom_SZ_infra_males <- setBelowThresholdToOne(trad_rom_SZ_males)
+```
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ Compare z distributions per region
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+T-TEST:
+
+```{r}
+
+exclude_columns <- c("X", "dcode", "ID")
+columns_to_test <- setdiff(names(li_rom_ASD), exclude_columns)
+
+# Initialize a dataframe to store the results
+results <- data.frame(Region = character(),
+                      Test_Stat = numeric(),
+                      P_Value = numeric(),
+                      stringsAsFactors = FALSE)
+
+exclude_columns <- c("X", "dcode", "ID", "option")
+columns_to_test <- setdiff(names(trad_rom_ASD), exclude_columns)
+
+# Iterate over regions
+for (c in columns_to_test) {
+  a <- trad_rom_SZ[[c]]
+  b <- trad_rom_HC[[c]]
+  
+
+  # test
+  # Welch t-test
+  result <- t.test(a, b)
+
+  # Store the results
+  results <- rbind(results, data.frame(Region = c,
+                                       Test_Stat = result$statistic,
+                                       P_Value = result$p.value))
+}
+
+# Adjust the p-values using FDR
+results$FDR <- p.adjust(results$P_Value, method = "fdr")
+```
+```{r}
+results
+```
+
+
+```{r}
+sig_reg_SZ_trad_supra <- data.frame(trad_rom_SZ_supra$superiortemporal_part1_thickness_TRAD_Z, data_trad_SZ$superiortemporal_part1_thickness_TRAD)
+
+sig_reg_HC_trad_supra <- data.frame(trad_rom_HC_supra$superiortemporal_part1_thickness_TRAD_Z, data_trad_HC$superiortemporal_part1_thickness_TRAD)
+
+# Rename columns
+colnames(sig_reg_SZ_trad_supra) <- c("supra", "sig_reg")
+colnames(sig_reg_HC_trad_supra) <- c("supra", "sig_reg")
+
+df_SZ_trad <- sig_reg_SZ_trad_supra[sig_reg_SZ_trad_supra$supra == 1,]
+df_HC_trad <- sig_reg_HC_trad_supra[sig_reg_HC_trad_supra$supra == 1,]
+
+mean_reg_SZ <- mean(df_SZ_trad$sig_reg)
+mean_reg_HC <- mean(df_HC_trad$sig_reg)
+total_HC_mean <- mean(data_trad_HC$superiortemporal_part1_thickness_TRAD)
+cat('Superiortemporal Part1 (TRAD)\n')
+cat('\n')
+cat('Mean SZ supra:', mean_reg_SZ, '\n')
+cat('Mean HC supra:', mean_reg_HC, '\n')
+cat('Total mean HC:', total_HC_mean, '\n')
+```
+```{r}
+result_t_test <- t.test(df_SZ_trad$sig_reg, df_HC_trad$sig_reg)
+result_t_test
+```
+
+```{r}
+
+#....SUPRA.....
+
+dfs_Li_rom_supra <- list(li_rom_HC_supra,li_rom_ASD_supra,li_rom_SZ_supra)
+dfs_trad_rom_supra <- list(trad_rom_HC_supra,trad_rom_ASD_supra,trad_rom_SZ_supra)
+dfs_Li_sch_supra <- list(li_sch_HC_supra,li_sch_ASD_supra,li_sch_SZ_supra)
+dfs_trad_rom_supra_males <- list(trad_rom_HC_supra_males,trad_rom_ASD_supra_males,trad_rom_SZ_supra_males)
+
+#....INFRA.....
+
+dfs_Li_rom_infra <- list(li_rom_HC_infra,li_rom_ASD_infra,li_rom_SZ_infra)
+dfs_trad_rom_infra <- list(trad_rom_HC_infra,trad_rom_ASD_infra,trad_rom_SZ_infra)
+dfs_trad_rom_infra_males <- list(trad_rom_HC_infra_males,trad_rom_ASD_infra_males,trad_rom_SZ_infra_males)
+dfs_Li_sch_infra <- list(li_sch_HC_infra,li_sch_ASD_infra,li_sch_SZ_infra)
+
+
+#Calculate total number of supra. infra- regions per subject
+calculate_total_ones <- function(df_list) {
+  new_df_list <- list()  
+  for (i in seq_along(df_list)) {
+    total_ones <- rowSums(df_list[[i]])
+    new_df <- data.frame(
+      indices = rownames(df_list[[i]]),
+      total_ones = total_ones
+    )
+    
+    # Rename column name according to each group
+    col_name <- paste0("total_ones_", ifelse(i == 1, "HC", ifelse(i == 2, "ASD", ifelse(i == 3,  "SZ")))) 
+    names(new_df)[names(new_df) == "total_ones"] <- col_name
+    new_df_list[[i]] <- new_df
+  }
+  
+  return(new_df_list)
+}
+
+#Apply supra:
+
+dfs_li_rom_supra_sumreg <- calculate_total_ones(dfs_Li_rom_supra)
+dfs_trad_rom_supra_sumreg <- calculate_total_ones(dfs_trad_rom_supra)
+dfs_trad_rom_supra_sumreg_males <- calculate_total_ones(dfs_trad_rom_supra_males)
+dfs_li_sch_supra_sumreg <- calculate_total_ones(dfs_Li_sch_supra)
+
+#Apply infra:
+
+dfs_li_rom_infra_sumreg <- calculate_total_ones(dfs_Li_rom_infra)
+dfs_trad_rom_infra_sumreg <- calculate_total_ones(dfs_trad_rom_infra)
+dfs_trad_rom_infra_sumreg_males <- calculate_total_ones(dfs_trad_rom_infra_males)
+dfs_li_sch_infra_sumreg <- calculate_total_ones(dfs_Li_sch_infra)
+
+#------Rom---------------
+li_rom_HC_sumreg_supra <- dfs_li_rom_supra_sumreg[[1]]
+li_rom_ASD_sumreg_supra <- dfs_li_rom_supra_sumreg[[2]]
+li_rom_SZ_sumreg_supra <- dfs_li_rom_supra_sumreg[[3]]
+
+li_rom_HC_sumreg_infra <- dfs_li_rom_infra_sumreg[[1]]
+li_rom_ASD_sumreg_infra <- dfs_li_rom_infra_sumreg[[2]]
+li_rom_SZ_sumreg_infra <- dfs_li_rom_infra_sumreg[[3]]
+
+#------Trad---------------
+trad_rom_HC_sumreg_supra <- dfs_trad_rom_supra_sumreg[[1]]
+trad_rom_ASD_sumreg_supra <- dfs_trad_rom_supra_sumreg[[2]]
+trad_rom_SZ_sumreg_supra <- dfs_trad_rom_supra_sumreg[[3]]
+
+trad_rom_HC_sumreg_infra <- dfs_trad_rom_infra_sumreg[[1]]
+trad_rom_ASD_sumreg_infra <- dfs_trad_rom_infra_sumreg[[2]]
+trad_rom_SZ_sumreg_infra <- dfs_trad_rom_infra_sumreg[[3]]
+
+#------Trad males ---------------
+trad_rom_HC_sumreg_supra_males <- dfs_trad_rom_supra_sumreg_males[[1]]
+trad_rom_ASD_sumreg_supra_males <- dfs_trad_rom_supra_sumreg_males[[2]]
+trad_rom_SZ_sumreg_supra_males <- dfs_trad_rom_supra_sumreg_males[[3]]
+
+trad_rom_HC_sumreg_infra_males <- dfs_trad_rom_infra_sumreg_males[[1]]
+trad_rom_ASD_sumreg_infra_males <- dfs_trad_rom_infra_sumreg_males[[2]]
+trad_rom_SZ_sumreg_infra_males <- dfs_trad_rom_infra_sumreg_males[[3]]
+
+#------Sch---------------
+li_sch_HC_sumreg_supra <- dfs_li_sch_supra_sumreg[[1]]
+li_sch_ASD_sumreg_supra <- dfs_li_sch_supra_sumreg[[2]]
+li_sch_SZ_sumreg_supra <- dfs_li_sch_supra_sumreg[[3]]
+
+li_sch_HC_sumreg_infra <- dfs_li_sch_infra_sumreg[[1]]
+li_sch_ASD_sumreg_infra <- dfs_li_sch_infra_sumreg[[2]]
+li_sch_SZ_sumreg_infra <- dfs_li_sch_infra_sumreg[[3]]
+```
+
+
+```{r}
+#Function to calculate the percentage of subjects
+calculate_percentage_subjects <- function(df) {
+  max_regions <- max(df[, ncol(df)])  # Find the maximum value of the last column
+  
+  new_df <- data.frame(
+    num_affected_regions = 0:max_regions, # Numbers of affected regions, from 0 to the maximum observed
+    percentage_subjects = 0  
+  )
+  
+  total_subjects <- nrow(df)  # Total number of subjects in the dataframe
+  for (i in 0:max_regions) {
+    count <- sum(df[, ncol(df)] == i)  # Count subjects with i affected regions
+    new_df$percentage_subjects[i + 1] <- (count / total_subjects) * 100
+  }
+  
+  return(new_df)
+}
+
+#SUPRA
+prop_li_rom_HC_supra <- calculate_percentage_subjects(li_rom_HC_sumreg_supra)
+prop_li_rom_ASD_supra <- calculate_percentage_subjects(li_rom_ASD_sumreg_supra)
+prop_li_rom_SZ_supra <- calculate_percentage_subjects(li_rom_SZ_sumreg_supra)
+
+prop_trad_rom_HC_supra <- calculate_percentage_subjects(trad_rom_HC_sumreg_supra)
+prop_trad_rom_ASD_supra <- calculate_percentage_subjects(trad_rom_ASD_sumreg_supra)
+prop_trad_rom_SZ_supra <- calculate_percentage_subjects(trad_rom_SZ_sumreg_supra)
+
+prop_trad_rom_HC_supra_males <- calculate_percentage_subjects(trad_rom_HC_sumreg_supra_males)
+prop_trad_rom_ASD_supra_males <- calculate_percentage_subjects(trad_rom_ASD_sumreg_supra_males)
+prop_trad_rom_SZ_supra_males <- calculate_percentage_subjects(trad_rom_SZ_sumreg_supra_males)
+
+prop_li_sch_HC_supra <- calculate_percentage_subjects(li_sch_HC_sumreg_supra)
+prop_li_sch_ASD_supra <- calculate_percentage_subjects(li_sch_ASD_sumreg_supra)
+prop_li_sch_SZ_supra <- calculate_percentage_subjects(li_sch_SZ_sumreg_supra)
+
+#INFRA
+prop_li_rom_HC_infra <- calculate_percentage_subjects(li_rom_HC_sumreg_infra)
+prop_li_rom_ASD_infra <- calculate_percentage_subjects(li_rom_ASD_sumreg_infra)
+prop_li_rom_SZ_infra <- calculate_percentage_subjects(li_rom_SZ_sumreg_infra)
+
+prop_trad_rom_HC_infra <- calculate_percentage_subjects(trad_rom_HC_sumreg_infra)
+prop_trad_rom_ASD_infra <- calculate_percentage_subjects(trad_rom_ASD_sumreg_infra)
+prop_trad_rom_SZ_infra <- calculate_percentage_subjects(trad_rom_SZ_sumreg_infra)
+
+prop_trad_rom_HC_infra_males <- calculate_percentage_subjects(trad_rom_HC_sumreg_infra_males)
+prop_trad_rom_ASD_infra_males <- calculate_percentage_subjects(trad_rom_ASD_sumreg_infra_males)
+prop_trad_rom_SZ_infra_males <- calculate_percentage_subjects(trad_rom_SZ_sumreg_infra_males)
+
+prop_li_sch_HC_infra <- calculate_percentage_subjects(li_sch_HC_sumreg_infra)
+prop_li_sch_ASD_infra <- calculate_percentage_subjects(li_sch_ASD_sumreg_infra)
+prop_li_sch_SZ_infra <- calculate_percentage_subjects(li_sch_SZ_sumreg_infra)
+
+```
+
+```{r}
+# Function to process each type of dataset (adding the group column)
+create_grouped_data <- function(df, group_name) {
+  df <- df %>%
+    mutate(Group = group_name)
+  return(df)
+}
+
+# Combine the ASD, HC, and SZ data for each condition and type (supra/infra)
+combine_data_for_plotting <- function(prop_HC, prop_ASD, prop_SZ, group_names) {
+  # Add the Group column to each dataset
+  prop_HC_grouped <- create_grouped_data(prop_HC, group_names[1])
+  prop_ASD_grouped <- create_grouped_data(prop_ASD, group_names[2])
+  prop_SZ_grouped <- create_grouped_data(prop_SZ, group_names[3])
+  
+  # Combine all groups
+  combined_data <- rbind(prop_HC_grouped, prop_ASD_grouped, prop_SZ_grouped)
+  
+  return(combined_data)
+}
+
+# Creating the datasets for each of the data plots:
+
+# For supra
+data_plot_rom_supra <- combine_data_for_plotting(prop_li_rom_HC_supra, prop_li_rom_ASD_supra, prop_li_rom_SZ_supra, c("HC", "ASD", "SZ"))
+data_plot_trad_supra <- combine_data_for_plotting(prop_trad_rom_HC_supra, prop_trad_rom_ASD_supra, prop_trad_rom_SZ_supra, c("HC", "ASD", "SZ"))
+data_plot_trad_supra_males <- combine_data_for_plotting(prop_trad_rom_HC_supra_males, prop_trad_rom_ASD_supra_males, prop_trad_rom_SZ_supra_males, c("HC", "ASD", "SZ"))
+data_plot_sch_supra <- combine_data_for_plotting(prop_li_sch_HC_supra, prop_li_sch_ASD_supra, prop_li_sch_SZ_supra, c("HC", "ASD", "SZ"))
+
+# For infra
+data_plot_rom_infra <- combine_data_for_plotting(prop_li_rom_HC_infra, prop_li_rom_ASD_infra, prop_li_rom_SZ_infra, c("HC", "ASD", "SZ"))
+data_plot_trad_infra <- combine_data_for_plotting(prop_trad_rom_HC_infra, prop_trad_rom_ASD_infra, prop_trad_rom_SZ_infra, c("HC", "ASD", "SZ"))
+data_plot_trad_infra_males <- combine_data_for_plotting(prop_trad_rom_HC_infra_males, prop_trad_rom_ASD_infra_males, prop_trad_rom_SZ_infra_males, c("HC", "ASD", "SZ"))
+data_plot_sch_infra <- combine_data_for_plotting(prop_li_sch_HC_infra, prop_li_sch_ASD_infra, prop_li_sch_SZ_infra, c("HC", "ASD", "SZ"))
+
+
+```
+
+
+%%%%%%%%%%%%%%%%%%%%%%
+
+ COMPARE PROPORTIONS
+
+%%%%%%%%%%%%%%%%%%%%%
+
+```{r}
+
+ggplot(li_rom_HC_sumreg_infra, aes(x = total_ones_HC)) +
+  geom_density(fill = "lightblue", alpha = 0.5) +  # Cambia el color y la transparencia según lo desees
+  theme_minimal() +
+  labs(title = "Density Plot of Total Ones HC",
+       x = "Total Ones HC",
+       y = "Density")
+
+```
+
+```{r}
+# Create empty dataframe
+results <- data.frame(Comparison = character(),
+                      W = numeric(),
+                      p_value = numeric(),
+                      stringsAsFactors = FALSE)
+
+# Define comparisons (first cases and then controls)
+comparisons <- list(
+  list(df1 = li_rom_ASD_sumreg_infra, df2 = li_rom_HC_sumreg_infra, label = "ASD vs HC (ROM, infra)"),
+  list(df1 = li_rom_SZ_sumreg_infra, df2 = li_rom_HC_sumreg_infra, label = "SZ vs HC (ROM, infra)"),
+  list(df1 = li_rom_ASD_sumreg_supra, df2 = li_rom_HC_sumreg_supra, label = "ASD vs HC (ROM, supra)"),
+  list(df1 = li_rom_SZ_sumreg_supra, df2 = li_rom_HC_sumreg_supra, label = "SZ vs HC (ROM, supra)"),
+
+  list(df1 = trad_rom_ASD_sumreg_infra, df2 = trad_rom_HC_sumreg_infra, label = "ASD vs HC (TRAD, infra)"),
+  list(df1 = trad_rom_SZ_sumreg_infra, df2 = trad_rom_HC_sumreg_infra, label = "SZ vs HC (TRAD, infra)"),
+  list(df1 = trad_rom_ASD_sumreg_supra, df2 = trad_rom_HC_sumreg_supra, label = "ASD vs HC (TRAD, supra)"),
+  list(df1 = trad_rom_SZ_sumreg_supra, df2 = trad_rom_HC_sumreg_supra, label = "SZ vs HC (TRAD, supra)"),
+
+  list(df1 = li_sch_ASD_sumreg_infra, df2 = li_sch_HC_sumreg_infra, label = "ASD vs HC (SCH, infra)"),
+  list(df1 = li_sch_SZ_sumreg_infra, df2 = li_sch_HC_sumreg_infra, label = "SZ vs HC (SCH, infra)"),
+  list(df1 = li_sch_ASD_sumreg_supra, df2 = li_sch_HC_sumreg_supra, label = "ASD vs HC (SCH, supra)"),
+  list(df1 = li_sch_SZ_sumreg_supra, df2 = li_sch_HC_sumreg_supra, label = "SZ vs HC (SCH, supra)"),
+
+  list(df1 = trad_rom_ASD_sumreg_infra_males, df2 = trad_rom_HC_sumreg_infra_males, label = "ASD vs HC (TRAD_males, infra)"),
+  list(df1 = trad_rom_SZ_sumreg_infra_males, df2 = trad_rom_HC_sumreg_infra_males, label = "SZ vs HC (TRAD_males, infra)"),
+  list(df1 = trad_rom_ASD_sumreg_supra_males, df2 = trad_rom_HC_sumreg_supra_males, label = "ASD vs HC (TRAD_males, supra)"),
+  list(df1 = trad_rom_SZ_sumreg_supra_males, df2 = trad_rom_HC_sumreg_supra_males, label = "SZ vs HC (TRAD_males, supra)")
+)
+
+```
+
+WILCOXON_TEST (COIN)
+
+```{r}
+
+#We use Mann-Whitney U-test because distributions are skewed
+results <- data.frame(Comparison = character(),
+                      Z = numeric(),
+                      p_value = numeric(),
+                      stringsAsFactors = FALSE)
+
+
+for (comp in comparisons) {
+  # Rename columns
+  colnames(comp$df1)[2] <- "n_affected_regions"
+  colnames(comp$df2)[2] <- "n_affected_regions"
+  
+  # Combine data into one dataframe with a grouping variable
+  datos <- data.frame(
+    grupo = as.factor(rep(c("df1", "df2"), 
+                          c(nrow(comp$df1), nrow(comp$df2)))),
+    n_affected_regions = c(comp$df1$n_affected_regions, 
+                           comp$df2$n_affected_regions)
+  )
+  
+  # Wilcoxon test using wilcox_test() from coin
+  test_result <- wilcox_test(n_affected_regions ~ grupo, 
+                             data = datos, 
+                             distribution = "approximate",
+                             conf.int = 0.95)
+  
+  # Extract the Z-value and p-value
+  z_value <- statistic(test_result)
+  p_value <- pvalue(test_result)
+  
+  # Save results
+  results <- rbind(results, 
+                   data.frame(Comparison = comp$label, 
+                              Z = z_value, 
+                              p_value = p_value,
+                              stringsAsFactors = FALSE))
+}
+
+# Print the results
+print(results)
+```
+
+
+
+%%%%%%%%%%%%%%%%%%
+      Plot
+%%%%%%%%%%%%%%%%%%
+
+```{r}
+# Combine all data
+data_plot_rom_supra<- subset(data_plot_rom_supra, num_affected_regions <= 15)
+data_plot_rom_infra<- subset(data_plot_rom_infra, num_affected_regions <= 15)
+
+data_plot_trad_supra<- subset(data_plot_trad_supra, num_affected_regions <= 15)
+data_plot_trad_infra<- subset(data_plot_trad_infra, num_affected_regions <= 15)
+
+data_plot_trad_supra_males<- subset(data_plot_trad_supra_males, num_affected_regions <= 15)
+data_plot_trad_infra_males<- subset(data_plot_trad_infra_males, num_affected_regions <= 15)
+
+data_plot_sch_supra<- subset(data_plot_sch_supra, num_affected_regions <= 37)
+data_plot_sch_infra<- subset(data_plot_sch_infra, num_affected_regions <= 37)
+
+
+labels_r <- c(seq(0, 14), " ≥15")
+labels_S <- c(seq(0, 36), " ≥37")
+```
+
+
+```{r}
+# ----------------FINAL TRAD  -------------------------------------
+supra <- ggplot(data = data_plot_trad_supra, aes(x = num_affected_regions, y = percentage_subjects, fill = Group)) +
+  geom_bar(data = subset(data_plot_trad_supra, Group != "HC"), stat = "identity", position = position_dodge(), width = 0.8) +  # Adjust the width of the bars to 0.8
+  geom_line(data = subset(data_plot_trad_supra, Group == "HC"), aes(group = 1, color = "HC"), size = 1.5) +  # Thicker line for the "HC" group
+  geom_point(data = subset(data_plot_trad_supra, Group == "HC"), aes(x = num_affected_regions, y = percentage_subjects), size = 3, color = "#F3B61F") +  # Add points for "HC" group
+  scale_fill_manual(values = c("ASD" = "#0C3D87", "SZ" = "#7CACF6")) +  # Colors for the other groups
+  scale_color_manual(values = c("HC" = "#F3B61F"), labels = c("HC_test"), guide = guide_legend(title = "Group")) +  # Label for the "HC" group line
+  theme_classic() +  # Use the classic theme
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),  # Remove grid lines
+        plot.background = element_rect(fill = "white", color = "white"),  # Set background to white without lines
+        panel.border = element_blank(),  # Remove panel border
+        axis.text.x = element_text(size = 16),  # Adjust size of x-axis labels
+        axis.text.y = element_text(size = 22),  # Adjust size of y-axis labels
+        axis.title.y = element_text(size = 24), # Adjust size of y-axis title
+        axis.title.x = element_text(size = 24)) + # Adjust size of x-axis title
+  xlim(0, 15) +  # Limit x-axis to 37
+  ylim(0, 25) +   # Limit y-axis to 25
+  labs(x = "N of regions", y = "Proportion of participants") +  # Set axis labels
+  scale_x_continuous(breaks = seq(0, 15), labels = labels_r)  # Change labels for x-axis
+
+infra <- ggplot(data = data_plot_trad_infra, aes(x = num_affected_regions, y = percentage_subjects, fill = Group)) +
+  geom_bar(data = subset(data_plot_trad_infra, Group != "HC"), stat = "identity", position = position_dodge(), width = 0.8) +  # Adjust the width of the bars to 0.8
+  geom_line(data = subset(data_plot_trad_infra, Group == "HC"), aes(group = 1, color = "HC"), size = 1.5) +  # Thicker line for the "HC" group
+  geom_point(data = subset(data_plot_trad_infra, Group == "HC"), aes(x = num_affected_regions, y = ), percentage_subjectssize = 3, color = "#F3B61F") +  # Add points for "HC" group
+  scale_fill_manual(values = c("ASD" = "#0C3D87", "SZ" = "#7CACF6")) +  # Colors for the other groups
+  scale_color_manual(values = c("HC" = "#F3B61F"), labels = c("HC_test"), guide = guide_legend(title = "Group")) +  # Label for the "HC" group line
+  theme_classic() +  # Use the classic theme
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),  # Remove grid lines
+        plot.background = element_rect(fill = "white", color = "white"),  # Set background to white without lines
+        panel.border = element_blank(),  # Remove panel border
+        axis.text.x = element_text(size = 16),  # Adjust size of x-axis labels
+        axis.text.y = element_text(size = 22),  # Adjust size of y-axis labels
+        axis.title.y = element_text(size = 24), # Adjust size of y-axis title
+        axis.title.x = element_text(size = 24)) + # Adjust size of x-axis title
+  xlim(0, 15) +  # Limit x-axis to 37
+  ylim(0, 25) +   # Limit y-axis to 25
+  labs(x = "N of regions", y = "Proportion of participants") +  # Set axis labels
+  scale_x_continuous(breaks = seq(0, 15), labels = labels_r)  # Change labels for x-axis
+
+# GridExtra:
+
+supra <- supra + ggtitle("Supra-normal") + 
+  theme(plot.title = element_text(size = 24, face = "bold"))
+
+infra <- infra + ggtitle("Infra-normal") + 
+  theme(plot.title = element_text(size = 24, face = "bold"))
+
+
+combined_plot <- grid.arrange(supra, infra, ncol = 1, heights = c(3, 3))
+
+# Save the plot as an image
+ggsave("~/prop_trad.png", combined_plot, width = 15, height = 10, dpi= 300)
+
+#Repeat it for the rest of the data
+```
+
+
+```{r}
+mean_trad_HC$option <- "HCtest"
+mean_trad_ASD$option <- "ASD"
+mean_trad_SZ$option <- "SZ"
+
+
+metrics_list <- c("z_score", "option")
+
+ev_metrics_trad_mean <- rbind(mean_trad_SZ[, metrics_list],mean_trad_ASD[, metrics_list],  mean_trad_HC[, metrics_list])
+
+create_density_plot <- function(data, metric) {
+  ggplot(data, aes(x = !!sym(metric), y = option, fill = option)) +
+    geom_density_ridges(quantile_lines = TRUE, quantiles = 2) +
+    geom_vline(xintercept = c(1.96, -1.96), linetype = "dashed", color = "black") +
+    theme_ridges() +
+    theme(
+      legend.position = "none",
+      panel.grid.major = element_blank(),  # Remove gray grid
+      panel.grid.minor = element_blank(),
+      axis.title.x = element_text(size = 20, hjust = 0.5, face = "bold"),
+      axis.text.y = element_text(size = 15),
+      axis.ticks.y = element_blank(),
+      axis.text.x = element_text(size = 15, hjust = 0.5),
+      axis.ticks.x = element_blank()
+    ) +
+    labs(x = "Z-scores whole brain AI", y = "") +
+    scale_fill_manual(values = c("#7CACF6","#0C3D87",  "#F3B61F")) +  # Include one more color for FEP if needed
+    scale_y_discrete(labels = unique(ev_metrics_trad_mean$option)) +
+    xlim(-4, 4)
+}
+
+grid <- expand.grid(row = 1:1, col = 1:1)
+plots <- list()
+
+metrics_list <- c("z_score")
+for (i in 1:length(metrics_list)) {
+  metric <- metrics_list[i]
+  plot <- create_density_plot(ev_metrics_trad_mean, metric)
+  plots[[i]] <- plot
+}
+
+figure_2 <- grid.arrange(grobs = plots, nrow = 1, ncol = 1)
+save_path_2 <- '~/AZ_mean_trad.png'
+ggsave(file = save_path_2, plot = figure_2, width = 8, height = 5)
+```
+PERFORM T_TESTS FOR MEAN_TRAD:
+
+ASD:
+
+```{r}
+################################
+#        T-TEST
+###############################
+
+t_result <- t.test(mean_trad_HC$z_score, mean_trad_ASD$z_score)
+t_result
+
+```
+```{r}
+################################
+#       COHEN'S D
+###############################
+
+cohen.d(mean_trad_HC$z_score,mean_trad_ASD$z_score)
+```
+SZ:
+
+```{r}
+################################
+#        T-TEST
+###############################
+
+t_result <- t.test(mean_trad_HC$z_score, mean_trad_SZ$z_score)
+t_result
+
+```
+```{r}
+################################
+#       COHEN'S D
+###############################
+
+cohen.d(mean_trad_HC$z_score,mean_trad_SZ$z_score)
+
+```
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Z-Distribution Plot for each region
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+```{r}
+library(cowplot)
+
+# Add 'option'
+li_rom_HC$option <- "HC_test"
+li_rom_ASD$option <- "ASD"
+li_rom_SZ$option <- "SZ"
+
+# Create a df combining all regions
+ev_metrics_long <- bind_rows(
+  lapply(names(li_rom_HC), function(region_name) {
+    if (region_name %in% c("X", "ID", "dcode")) {
+      return(NULL)
+    }
+    
+    data_HC <- li_rom_HC %>%
+      select(region_value = !!sym(region_name)) %>%
+      mutate(region_value = as.numeric(region_value), option = "HC_test")
+    
+    data_ASD <- li_rom_ASD %>%
+      select(region_value = !!sym(region_name)) %>%
+      mutate(region_value = as.numeric(region_value), option = "ASD")
+    
+    data_SZ <- li_rom_SZ %>%
+      select(region_value = !!sym(region_name)) %>%
+      mutate(region_value = as.numeric(region_value), option = "SZ")
+    
+    data <- bind_rows(data_ASD, data_SZ, data_HC)
+    data$region <- region_name
+    data$region <- sub("_Z$", "", region_name)
+    return(data)
+  })
+)
+
+# Reorder factors
+ev_metrics_long$option <- factor(ev_metrics_long$option, 
+                                 levels = c("ASD", "SZ", "HC_test"))
+
+ev_metrics_long <- na.omit(ev_metrics_long)
+
+# Divide into 4 sections
+n_regions <- length(unique(ev_metrics_long$region))
+regions_per_plot <- ceiling(n_regions / 4)
+
+ev_metrics_split <- split(ev_metrics_long, 
+                          ceiling(seq_along(unique(ev_metrics_long$region)) / regions_per_plot))
+
+# Function to create density plot with conditional legend
+create_density_plot <- function(data, show_legend = TRUE) {
+  p <- ggplot(data, aes(x = region_value, y = region, fill = option)) +
+    geom_density_ridges(quantile_lines = TRUE, quantiles = 2,
+                        scale = 1.2, rel_min_height = 0.01, alpha = 0.7) +
+    theme_ridges() +
+    theme(panel.background = element_rect(fill = "white", colour = "white"),
+          plot.background = element_rect(fill = "white", colour = "white"),
+          legend.background = element_rect(fill = "white", colour = "white"),
+          panel.grid.major = element_blank(),  
+          panel.grid.minor = element_blank(),  
+          axis.title.x = element_text(size = 12, hjust = 0.5, face = "bold"),  # x-axis
+          axis.text.y = element_text(size = 10),  # y-axis
+          axis.ticks.y = element_blank(),  
+          legend.title = element_blank(), #Remove legend tittle
+          axis.text.x = element_text(size = 10, hjust = 0.5),  # x-axis
+          axis.ticks.x = element_blank()) +  
+    labs(x = "", y = "") +  # Remove x and y axis labels
+    scale_fill_manual(values = c("#0C3D87", "#7CACF6", "#F3B61F")) + 
+    scale_x_continuous(limits = c(-3, 3))  # x-axis limits
+  
+  if (show_legend) {
+    p <- p + theme(legend.position = "right")
+  } else {
+    p <- p + theme(legend.position = "none")
+  }
+  
+  return(p)
+}
+
+# Create plots with conditional legends
+plots <- list(
+  create_density_plot(ev_metrics_split[[1]], show_legend = FALSE),
+  create_density_plot(ev_metrics_split[[2]], show_legend = FALSE),
+  create_density_plot(ev_metrics_split[[3]], show_legend = FALSE),
+  create_density_plot(ev_metrics_split[[4]], show_legend = TRUE)
+)
+
+# Create a list of widths, giving more space to the last plot with the legend
+plot_widths <- c(1, 1, 1, 1.27)  # Adjust the last value as needed for the legend space
+
+# Combine plots using plot_grid with specified widths
+figure <- plot_grid(
+  plots[[1]], plots[[2]], plots[[3]], plots[[4]],
+  ncol = 4,
+  rel_widths = plot_widths
+)
+
+# Save the plot as an image
+save_path <- '~/ALL_Z_DIST_ROM_FINAL.png'
+ggsave(file = save_path, plot = figure, width = 20, height = 15, units = "in", dpi = 300, bg = "white")
+
+```
+
+
+
+
+
