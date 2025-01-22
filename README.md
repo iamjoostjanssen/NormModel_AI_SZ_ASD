@@ -1,7 +1,7 @@
 # NormModel_AI_SZ_ASD
 Individualized Cortical Thickness Asymmetry in Autism Spectrum Disorder and Schizophrenia
 
-![alt text](https://github.com/[iamjoostjanssen/[NormModel_AI_SZ_ASD]/blob/[branch]/image.jpg?raw=true)
+![alt text](https://github.com/iamjoostjanssen/NormModel_AI_SZ_ASD/blob/main/figure1.png?raw=true)
 
 This repository contains R code pertaining to the study Individualized Cortical Thickness Asymmetry in Autism Spectrum Disorder and Schizophrenia.
 We created a docker that includes the [PCN-toolkit](https://pcntoolkit.readthedocs.io/en/latest/) and added extra automated features for model evaluation and visualization. 
